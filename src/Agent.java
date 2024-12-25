@@ -5,73 +5,98 @@ public class Agent {
     /**
      * 在当前回合里，只能生长一次:
      * 1. 若我方蛋白质数 (myA) > requiredActionsCount(生长所需)，才可尝试生长
-     * 2. 找到可作为父器官的一个器官 (此处选最后一个, 也可自行更改)
-     * 3. 使用 BFS 找到最近的蛋白质源:
-     *    - 如果找到, 获取从 parent 到蛋白质源的路径, 提取第2个节点作为"下一步"去 GROW
-     * 4. 如果找不到, 则可以尝试原先的逻辑(周围四格)或者 WAIT
-     * 5. 如果没有可行位置或蛋白质不足, 则输出 WAIT
+     * 2. 找到**离蛋白质源最近**的我方器官 (遍历所有器官 + BFS)
+     * 3. 若找到了最近蛋白质源，则生成一次 GROW 命令；否则尝试备用策略(周围四格)或 WAIT
      */
     public String getAction(State state, int requiredActionsCount) {
         // 1) 如果蛋白质不足，则无法生长，只能 WAIT
-        if (state.myA <= requiredActionsCount) {
+        if (state.myA < requiredActionsCount) {
             System.err.println("蛋白质不足, 等待...");
             return "WAIT";
         }
 
-        // 2) 选一个我方器官作为父器官
+        // 如果没有器官，就无从生长
         if (state.myOrgans.isEmpty()) {
             System.err.println("没有任何我方器官, 等待...");
-            return "WAIT"; // 没有器官无法生长
+            return "WAIT";
         }
-        // 例如这里选择列表里的**最后一个**器官 (你也可以选第一个或ROOT)
-        State.Entity parent = state.myOrgans.get(state.myOrgans.size() - 1);
 
-        // 3) BFS 找最近蛋白质源, 返回 "下一步" 坐标
-        int[] nextMove = findNextStepTowardsClosestProtein(state, parent.x, parent.y);
-        if (nextMove != null) {
-            // 找到蛋白质源的方向，直接 GROW
-            int nx = nextMove[0];
-            int ny = nextMove[1];
-            return String.format("GROW %d %d %d BASIC", parent.organId, nx, ny);
-        } else {
-            System.err.println("附近没有可达的蛋白质源，尝试在周围四格找空位...");
+        // 2) 遍历所有我方器官，找出到达蛋白质源距离最近者
+        BFSResult bestResult = null;       // 用于记录最优 BFS 结果
+        State.Entity bestOrgan = null;     // 记录“发起生长”的器官
 
-            // 如果找不到蛋白质源，就使用之前的简单四格生长逻辑或 WAIT
-            // 这里演示“在周围四格找一个空位或蛋白质源”的做法
-            List<int[]> candidatePositions = new ArrayList<>();
-            int[][] directions = {{ 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 }};
-            for (int[] dir : directions) {
-                int nx = parent.x + dir[0];
-                int ny = parent.y + dir[1];
-                if (state.isOutOfBounds(nx, ny)) continue;
-                if (isCellEmptyOrProtein(state, nx, ny)) {
-                    candidatePositions.add(new int[]{ nx, ny });
+        for (State.Entity organ : state.myOrgans) {
+            BFSResult r = findNextStepTowardsClosestProteinForOrgan(state, organ.x, organ.y);
+            if (r.found) {
+                // 若目前还没有最佳，或找到更短的距离，则更新
+                if (bestResult == null || r.dist < bestResult.dist) {
+                    bestResult = r;
+                    bestOrgan = organ;
                 }
             }
-            if (!candidatePositions.isEmpty()) {
-                Random rng = new Random();
-                int[] chosen = candidatePositions.get(rng.nextInt(candidatePositions.size()));
-                return String.format("GROW %d %d %d BASIC", parent.organId, chosen[0], chosen[1]);
-            } else {
-                System.err.println("周围也无空位, 等待...");
-                return "WAIT";
+        }
+
+        // 3) 如果找到可到达的蛋白质源，则直接从 bestOrgan 朝 nextStep 生长
+        if (bestResult != null && bestOrgan != null) {
+            System.err.println(
+                    String.format("最佳器官ID=%d 距离最近蛋白质=%d", bestOrgan.organId, bestResult.dist)
+            );
+            return String.format(
+                    "GROW %d %d %d BASIC",
+                    bestOrgan.organId,
+                    bestResult.nextStep[0],
+                    bestResult.nextStep[1]
+            );
+        }
+
+        // 如果所有器官都无法到达蛋白质源
+        System.err.println("没有器官能到达蛋白质源，尝试周围四格随机生长(遍历所有器官)...");
+
+        // 准备一个数据结构来存储 “(器官ID, x, y)”
+        List<int[]> possibleGrows = new ArrayList<>();
+
+        // 遍历自己所有器官
+        for (State.Entity organ : state.myOrgans) {
+            int[][] directions = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+            for (int[] dir : directions) {
+                int nx = organ.x + dir[0];
+                int ny = organ.y + dir[1];
+                if (state.isOutOfBounds(nx, ny)) continue;
+                if (isCellEmptyOrProtein(state, nx, ny)) {
+                    // 记录: [器官ID, 目标x, 目标y]
+                    possibleGrows.add(new int[]{ organ.organId, nx, ny });
+                }
             }
+        }
+
+        // 如果在所有器官的相邻格子中，找到了至少一个可生长位置
+        if (!possibleGrows.isEmpty()) {
+            // 从这些可生长位置里随机挑一个
+            Random rng = new Random();
+            int[] chosen = possibleGrows.get(rng.nextInt(possibleGrows.size()));
+            // chosen[0] = organId, chosen[1] = x, chosen[2] = y
+            return String.format("GROW %d %d %d BASIC", chosen[0], chosen[1], chosen[2]);
+        } else {
+            // 若所有器官四周都无可生长位置，则只能 WAIT
+            System.err.println("所有器官周围都无空位, 等待...");
+            return "WAIT";
         }
     }
 
-    /**
-     * BFS 查找从 (startX, startY) 到最近蛋白质源的路径，并返回下一步坐标。
-     * 如果找不到任何蛋白质源，返回 null。
-     */
-    private int[] findNextStepTowardsClosestProtein(State state, int startX, int startY) {
-        // 如果 (startX, startY) 本身在蛋白质上(极端情况)，那下一步就相等?
-        // 这里暂不考虑这种情况，一般器官不会在蛋白质源格上。
+    //========================================================================
+    //                   核心：为某个器官做BFS，找离它最近的蛋白质
+    //========================================================================
 
-        // BFS 初始化
+    /**
+     * 对一个给定器官坐标 (startX, startY)，BFS 找到最近的蛋白质源。
+     * 如果成功找到，则返回 BFSResult，其中包含 "下一步坐标" 和 "距离"。
+     * 如果找不到，则返回 BFSResult.found = false。
+     */
+    private BFSResult findNextStepTowardsClosestProteinForOrgan(State state, int startX, int startY) {
         int w = state.width;
         int h = state.height;
         boolean[][] visited = new boolean[h][w];
-        // 存储每个坐标的前驱，用于路径回溯
+
         int[][] parentX = new int[h][w];
         int[][] parentY = new int[h][w];
         for (int i = 0; i < h; i++) {
@@ -83,30 +108,34 @@ public class Agent {
         queue.offer(new int[]{ startX, startY });
         visited[startY][startX] = true;
 
-        // BFS
         while (!queue.isEmpty()) {
             int[] cur = queue.poll();
             int cx = cur[0];
             int cy = cur[1];
 
-            // 如果这里是蛋白质源，就可以结束搜索 --
-            // 但实际上，一开始 (cx,cy) 是器官所在处，通常不会是蛋白质源。
-            // 我们需要找下一个遇到蛋白质的坐标
+            // 如果这是蛋白质源(且不是起点本身), 找到了
             if (state.isProteinTile(cx, cy) && !(cx == startX && cy == startY)) {
-                // 找到了蛋白质源，从 (cx, cy) 回溯路径
-                return reconstructNextStep(startX, startY, cx, cy, parentX, parentY);
+                // 回溯路径
+                List<int[]> path = reconstructPath(startX, startY, cx, cy, parentX, parentY);
+
+                if (path.isEmpty()) {
+                    // 如果路径为空(可能极小概率起点就是蛋白质,或无效情况)
+                    return new BFSResult(false, null, Integer.MAX_VALUE);
+                }
+                // path.get(0) 就是"下一步"坐标
+                int dist = path.size(); // BFS距离(起点到蛋白质源的步数)
+                return new BFSResult(true, path.get(0), dist);
             }
 
-            // 扩展四个方向
+            // 继续向4方向扩张
             int[][] directions = {{0,-1},{1,0},{0,1},{-1,0}};
             for (int[] d : directions) {
                 int nx = cx + d[0];
                 int ny = cy + d[1];
-                if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue; // 越界
+                if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;  // 越界
                 if (visited[ny][nx]) continue;
 
-                // BFS 要允许走到蛋白质源上(以便搜索到它)
-                // 但不能穿墙、不能穿自己的器官、也不能穿对手器官
+                // 不可穿墙/器官，但可踩蛋白质
                 if (!isTraversable(state, nx, ny)) continue;
 
                 visited[ny][nx] = true;
@@ -116,68 +145,70 @@ public class Agent {
             }
         }
 
-        // 没找到蛋白质源
-        return null;
+        // 没搜索到任何蛋白质
+        return new BFSResult(false, null, Integer.MAX_VALUE);
     }
 
     /**
-     * 回溯路径，并返回“从起点出发的第一步”坐标
-     * @param sx 起点X
-     * @param sy 起点Y
-     * @param gx 目标(发现蛋白质)X
-     * @param gy 目标(发现蛋白质)Y
+     * 回溯出完整路径 (sx, sy) -> (gx, gy)，返回一个列表(不含起点，含终点)。
+     * 若想包含起点可自行修改。
      */
-    private int[] reconstructNextStep(int sx, int sy,
-                                      int gx, int gy,
-                                      int[][] parentX, int[][] parentY) {
-        // 回溯路径 (gx, gy) -> (sx, sy)
+    private List<int[]> reconstructPath(int sx, int sy, int gx, int gy,
+                                        int[][] parentX, int[][] parentY) {
         List<int[]> path = new ArrayList<>();
         int cx = gx, cy = gy;
         while (!(cx == sx && cy == sy)) {
             path.add(new int[]{ cx, cy });
             int px = parentX[cy][cx];
             int py = parentY[cy][cx];
+            if (px == -1 && py == -1) {
+                // 说明没有父节点, 回溯失败
+                return new ArrayList<>();
+            }
             cx = px;
             cy = py;
         }
-        // 此时 (cx,cy) == (sx, sy)
-        // path 中存的是从目标往回走的坐标，不含起点，但含目标
-        Collections.reverse(path); // 反转为从起点 -> 目标
-
-        // 如果 path 为空(其实不会空, 因为找到就至少目标自己),
-        // 或者 path.size() == 1 (目标就在起点隔壁?),
-        // 则第一步就是 path.get(0)
-        if (path.isEmpty()) {
-            return null;
-        }
-        // path.get(0) 就是离起点最近的一步(其实就是目标?), 但通常 BFS 找到的点可能就是下一个格子
-        // 例如, 当蛋白质就在相邻格时, path.size()=1, path.get(0)=那格 => nextStep=那格
-        return path.get(0);
+        // 此时(cx,cy) == (sx,sy)
+        Collections.reverse(path);
+        return path; // 不包含起点, 但包含终点
     }
 
     /**
-     * BFS中, 判断 (x,y) 是否可通行:
-     * 不可越界, 不可为墙/器官; 可以是蛋白质源(A,B,C,D)或纯空地
+     * BFS中可穿行(空地或蛋白质), 不可穿墙/己方器官/对方器官
      */
     private boolean isTraversable(State state, int x, int y) {
         if (state.isOutOfBounds(x, y)) return false;
-        if (state.isWall(x, y)) return false;
-        if (state.isMyOrgan(x, y)) return false;
-        if (state.isOppOrgan(x, y)) return false;
-        // 蛋白质源也允许通行, 这样才能搜索到它
+        if (state.isWall(x, y))       return false;
+        if (state.isMyOrgan(x, y))    return false;
+        if (state.isOppOrgan(x, y))   return false;
+        // 蛋白质源视为可穿(便于找到并回溯路径)
         return true;
     }
 
     /**
-     * 是否空地或蛋白质源 (仅用于本回合生长判断, 不一定跟 BFS 中的 isTraversable 一致)
+     * 是否可生长(空地或蛋白质源)
      */
     private boolean isCellEmptyOrProtein(State state, int x, int y) {
         if (state.isOutOfBounds(x, y)) return false;
-        // 不能是墙或器官
-        if (state.isWall(x, y)) return false;
-        if (state.isMyOrgan(x, y)) return false;
-        if (state.isOppOrgan(x, y)) return false;
-        // 如果是蛋白质(A,B,C,D) 或什么都没有(空格)
+        if (state.isWall(x, y))       return false;
+        if (state.isMyOrgan(x, y))    return false;
+        if (state.isOppOrgan(x, y))   return false;
+        // 如果是蛋白质(A,B,C,D) 或纯空白
         return true;
+    }
+
+    //===============================================================
+    //                  BFSResult 辅助类
+    //===============================================================
+    private static class BFSResult {
+        boolean found;      // 是否找到蛋白质
+        int[] nextStep;     // 下一步坐标(离起点最近的一格)
+        int dist;           // BFS 距离(步数)
+
+        BFSResult(boolean found, int[] nextStep, int dist) {
+            this.found = found;
+            this.nextStep = nextStep;
+            this.dist = dist;
+        }
     }
 }
