@@ -43,7 +43,10 @@ public class Agent {
         int[][] directions = { {0, -1}, {1, 0}, {0, 1}, {-1, 0} }; // N, E, S, W
         char[] dirChars = { 'N', 'E', 'S', 'W' };
 
+        // 遍历全部己方细胞
         for (State.Entity organ : state.myOrgans) {
+
+            // 遍历己方所有细胞的四个方向
             for (int i = 0; i < directions.length; i++) {
                 int dx = directions[i][0];
                 int dy = directions[i][1];
