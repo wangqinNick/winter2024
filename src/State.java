@@ -1,9 +1,10 @@
+// State.java
 import java.util.*;
 
 /**
  * State 类用于存储和管理游戏状态及实体信息。
  */
-public class State {
+public class State implements Cloneable {
 
     public int width;
     public int height;
@@ -18,7 +19,10 @@ public class State {
     public List<Entity> oppOrgans = new ArrayList<>();
     public List<Entity> walls = new ArrayList<>();
     public List<Entity> proteins = new ArrayList<>(); // A, B, C, D
-    public List<Entity> harvesters = new ArrayList<>(); // HARVESTER
+
+    // 采集器列表
+    public List<Entity> ownHarvesters = new ArrayList<>();
+    public List<Entity> enemyHarvesters = new ArrayList<>();
 
     /**
      * 构造函数，初始化地图宽度和高度。
@@ -32,45 +36,118 @@ public class State {
     }
 
     /**
+     * 深拷贝构造函数。
+     *
+     * @param other 需要被拷贝的 State 对象
+     */
+    public State(State other) {
+        this.width = other.width;
+        this.height = other.height;
+        this.myA = other.myA;
+        this.myB = other.myB;
+        this.myC = other.myC;
+        this.myD = other.myD;
+        this.oppA = other.oppA;
+        this.oppB = other.oppB;
+        this.oppC = other.oppC;
+        this.oppD = other.oppD;
+
+        // 深拷贝实体列表
+        for (Entity e : other.allEntities) {
+            Entity newEntity = e.clone();
+            this.allEntities.add(newEntity);
+            switch (newEntity.type) {
+                case WALL:
+                    this.walls.add(newEntity);
+                    break;
+                case ROOT:
+                case BASIC:
+                case HARVESTER:
+                    if (newEntity.owner == Entity.Owner.SELF) {
+                        this.myOrgans.add(newEntity);
+                        if (newEntity.type == Entity.EntityType.HARVESTER) {
+                            this.ownHarvesters.add(newEntity);
+                        }
+                    } else if (newEntity.owner == Entity.Owner.OPPONENT) {
+                        this.oppOrgans.add(newEntity);
+                        if (newEntity.type == Entity.EntityType.HARVESTER) {
+                            this.enemyHarvesters.add(newEntity);
+                        }
+                    }
+                    break;
+                case A:
+                case B:
+                case C:
+                case D:
+                    this.proteins.add(newEntity);
+                    break;
+                default:
+                    // 其他类型暂不处理
+                    break;
+            }
+        }
+    }
+
+    /**
      * 添加实体到 State 中，并根据类型进行分类存储。
      *
      * @param x              X 坐标
      * @param y              Y 坐标
      * @param type           实体类型（WALL, ROOT, BASIC, HARVESTER, A, B, C, D）
-     * @param owner          所有者（1: 我方, 0: 对手, -1: 无归属）
+     * @param ownerInt       所有者（1: 我方, 0: 对手, -1: 无归属）
      * @param organId        器官 ID（非器官则为0）
-     * @param organDir       器官方向（N, W, S, E 或 X）
+     * @param organDirSymbol 器官方向符号（'N', 'W', 'S', 'E' 或 'X'）
      * @param organParentId  父器官 ID（ROOT 类型器官为0）
      * @param organRootId    ROOT 器官 ID（非器官则为0）
      */
-    public void addEntity(int x, int y, String type, int owner, int organId,
-                          String organDir, int organParentId, int organRootId) {
-        Entity e = new Entity(x, y, type, owner, organId, organDir, organParentId, organRootId);
+    public void addEntity(int x, int y, String type, int ownerInt, int organId,
+                          char organDirSymbol, int organParentId, int organRootId) {
+        Entity.Owner owner;
+        if (ownerInt == 1) {
+            owner = Entity.Owner.SELF;
+        } else if (ownerInt == 0) {
+            owner = Entity.Owner.OPPONENT;
+        } else {
+            owner = Entity.Owner.NONE;
+        }
+
+        Entity.EntityType entityType;
+        try {
+            entityType = Entity.EntityType.valueOf(type);
+        } catch (IllegalArgumentException e) {
+            // 未知类型，默认为 WALL
+            entityType = Entity.EntityType.WALL;
+        }
+
+        // 解析方向符号为 Direction 枚举
+        Direction direction = Entity.parseDirection(organDirSymbol);
+
+        Entity e = new Entity(x, y, entityType, owner, organId, direction, organParentId, organRootId);
         allEntities.add(e);
 
-        switch (type) {
-            case "WALL":
+        switch (e.type) {
+            case WALL:
                 walls.add(e);
                 break;
-            case "ROOT":
-            case "BASIC":
-            case "HARVESTER":
-                if (owner == 1) {
+            case ROOT:
+            case BASIC:
+            case HARVESTER:
+                if (e.owner == Entity.Owner.SELF) {
                     myOrgans.add(e);
-                    if ("HARVESTER".equals(type)) {
-                        harvesters.add(e);
+                    if (e.type == Entity.EntityType.HARVESTER) {
+                        ownHarvesters.add(e);
                     }
-                } else if (owner == 0) {
+                } else if (e.owner == Entity.Owner.OPPONENT) {
                     oppOrgans.add(e);
-                    if ("HARVESTER".equals(type)) {
-                        harvesters.add(e);
+                    if (e.type == Entity.EntityType.HARVESTER) {
+                        enemyHarvesters.add(e);
                     }
                 }
                 break;
-            case "A":
-            case "B":
-            case "C":
-            case "D":
+            case A:
+            case B:
+            case C:
+            case D:
                 proteins.add(e);
                 break;
             default:
@@ -114,8 +191,22 @@ public class State {
      * @return 如果是我方器官则返回 true，否则返回 false
      */
     public boolean isMyOrgan(int x, int y) {
-        for (Entity e : myOrgans) {
+        for (Entity e : allEntities) {
             if (e.x == x && e.y == y) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 判断某坐标是否为Root。
+     *
+     * @param x X 坐标
+     * @param y Y 坐标
+     * @return 如果是Root则返回 true，否则返回 false
+     */
+    public boolean isRoot(int x, int y) {
+        for (Entity e : myOrgans) {
+            if (e.x == x && e.y == y && e.type == Entity.EntityType.ROOT) return true;
         }
         return false;
     }
@@ -165,39 +256,20 @@ public class State {
     }
 
     /**
-     * 实体类，表示地图上的各种实体。
+     * 判断蛋白质位置上是否已经放置器官。
+     *
+     * @param x X 坐标
+     * @param y Y 坐标
+     * @return 如果已经放置器官，则返回 true，否则返回 false
      */
-    public static class Entity {
-        public int x, y;
-        public String type;      // WALL, ROOT, BASIC, HARVESTER, A, B, C, D
-        public int owner;        // 1: 我方, 0: 对手, -1: 无归属
-        public int organId;      // 器官ID (非器官则为0)
-        public String organDir;  // N, W, S, E 或 X
-        public int organParentId;
-        public int organRootId;
-
-        /**
-         * 构造函数，初始化实体属性。
-         *
-         * @param x              X 坐标
-         * @param y              Y 坐标
-         * @param type           实体类型
-         * @param owner          所有者
-         * @param organId        器官 ID
-         * @param organDir       器官方向
-         * @param organParentId  父器官 ID
-         * @param organRootId    ROOT 器官 ID
-         */
-        public Entity(int x, int y, String type, int owner, int organId,
-                      String organDir, int organParentId, int organRootId) {
-            this.x = x;
-            this.y = y;
-            this.type = type;
-            this.owner = owner;
-            this.organId = organId;
-            this.organDir = organDir;
-            this.organParentId = organParentId;
-            this.organRootId = organRootId;
+    public boolean isOrganPlaced(int x, int y) {
+        for (Entity organ : myOrgans) {
+            if (organ.x == x && organ.y == y) {
+                return true;
+            }
         }
+        return false;
     }
+
+    // 其他方法保持不变
 }

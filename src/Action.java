@@ -1,6 +1,4 @@
-/**
- * Action 类用于封装不同类型的动作（基于器官类型）。
- */
+// Action.java
 public class Action {
     // 动作类型枚举
     public enum ActionType {
@@ -15,7 +13,7 @@ public class Action {
     private int organId;
     private int x;
     private int y;
-    private char direction;   // N, S, W, E（仅 HARVESTER 使用）
+    private char direction;   // N, S, W, E 或 X
 
     /**
      * 构造 GROW 动作。
@@ -24,7 +22,7 @@ public class Action {
      * @param x          目标 X 坐标
      * @param y          目标 Y 坐标
      * @param actionType 器官类型（BASIC 或 HARVESTER）
-     * @param direction  方向（仅 HARVESTER 使用）
+     * @param direction  方向（N, S, W, E 或 X）
      */
     public Action(int organId, int x, int y, ActionType actionType, char direction) {
         this.actionType = actionType;
@@ -39,6 +37,10 @@ public class Action {
      */
     public Action() {
         this.actionType = ActionType.WAIT;
+        this.direction = 'X';
+        this.organId = 0;
+        this.x = 0;
+        this.y = 0;
     }
 
     /**
@@ -54,16 +56,13 @@ public class Action {
             case HARVESTER:
                 return String.format("GROW %d %d %d HARVESTER %c", organId, x, y, direction);
             case BASIC:
-                // 如果 BASIC 不需要方向，可以忽略 direction
-                // return String.format("GROW %d %d %d BASIC", organId, x, y);
-                // 如果需要方向，可以保留如下格式
                 return String.format("GROW %d %d %d BASIC %c", organId, x, y, direction);
             default:
                 return "WAIT"; // 默认返回 WAIT
         }
     }
 
-    // Getter 和 Setter 方法（可根据需要添加）
+    // Getter 和 Setter 方法
 
     public ActionType getActionType() {
         return actionType;

@@ -1,3 +1,5 @@
+// Player.java
+import java.rmi.ServerError;
 import java.util.*;
 import java.io.*;
 
@@ -28,7 +30,7 @@ public class Player {
                 String type = in.next();
                 int owner = in.nextInt();
                 int organId = in.nextInt();
-                String organDir = in.next(); // N, W, S, E 或 X
+                char organDir = in.next().charAt(0); // N, W, S, E 或 X
                 int organParentId = in.nextInt();
                 int organRootId = in.nextInt();
 
@@ -49,6 +51,14 @@ public class Player {
 
             // 读取 requiredActionsCount (本关通常为1)
             int requiredActionsCount = in.nextInt();
+
+            // debug
+            System.err.println("当前回合游戏信息: ");
+            System.err.println("我方器官: ");
+            for (Entity entity: state.myOrgans) {
+                System.err.println(entity);
+            }
+            System.err.println("我方资源数量: " + state.myA + ", " + state.myB + ", " + state.myC + ", " + state.myD);
 
             // 获取行动
             Action action = agent.getAction(state, requiredActionsCount);
