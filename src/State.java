@@ -270,6 +270,4 @@ public class State implements Cloneable {
         }
         return false;
     }
-
-    // 其他方法保持不变
 }
