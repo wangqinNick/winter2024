@@ -7,71 +7,63 @@ public class Entity implements Cloneable {
         HARVESTER,
         TENTACLE,
         SPORER,
-        A, B, C, D
+        A,B,C,D
     }
 
     public enum Owner {
         SELF, OPPONENT, NONE
     }
 
-    public int x, y;
+    public int x,y;
     public EntityType type;
     public Owner owner;
-    public int organId;         // 器官ID
-    public Direction direction; // 朝向
-    public int organParentId;   // 父器官ID
-    public int organRootId;     // 该器官所属的 ROOT ID
+    public int organId;
+    public Direction direction;
+    public int organParentId;
+    public int organRootId;
 
-    // 采集器容量 (根据需要，也可给 SPORER/TENTACLE 等不同属性)
-    public int capacityC;
-    public int capacityD;
+    // 对于 HARVESTER
+    public int capacityC, capacityD;
 
-    public Entity(int x, int y, EntityType type, Owner owner,
-                  int organId, Direction direction,
-                  int organParentId, int organRootId) {
-        this.x = x;
-        this.y = y;
-        this.type = type;
-        this.owner = owner;
-        this.organId = organId;
-        this.direction = direction;
-        this.organParentId = organParentId;
-        this.organRootId = organRootId;
+    public Entity(int x,int y, EntityType t, Owner ow,
+                  int organId, Direction dir,
+                  int pId,int rId){
+        this.x= x; this.y= y;
+        this.type= t;
+        this.owner= ow;
+        this.organId= organId;
+        this.direction= dir;
+        this.organParentId= pId;
+        this.organRootId= rId;
 
-        if (type == EntityType.HARVESTER) {
-            this.capacityC = 1;
-            this.capacityD = 1;
+        if(t== EntityType.HARVESTER){
+            capacityC=1; capacityD=1;
         } else {
-            this.capacityC = 0;
-            this.capacityD = 0;
+            capacityC=0; capacityD=0;
         }
     }
 
-    public Entity(Entity other) {
-        this.x = other.x;
-        this.y = other.y;
-        this.type = other.type;
-        this.owner = other.owner;
-        this.organId = other.organId;
-        this.direction = other.direction;
-        this.organParentId = other.organParentId;
-        this.organRootId = other.organRootId;
-        this.capacityC = other.capacityC;
-        this.capacityD = other.capacityD;
+    public Entity(Entity other){
+        this.x= other.x;
+        this.y= other.y;
+        this.type= other.type;
+        this.owner= other.owner;
+        this.organId= other.organId;
+        this.direction= other.direction;
+        this.organParentId= other.organParentId;
+        this.organRootId= other.organRootId;
+        this.capacityC= other.capacityC;
+        this.capacityD= other.capacityD;
     }
 
     @Override
-    public Entity clone() {
+    public Entity clone(){
         return new Entity(this);
     }
 
     @Override
-    public String toString() {
-        return "Entity{" + type + "@" + x + "," + y
-                + ",owner=" + owner
-                + ",id=" + organId
-                + ",dir=" + direction
-                + ",rootId=" + organRootId
-                + "}";
+    public String toString(){
+        return String.format("Entity{%s@(%d,%d),owner=%s,id=%d,dir=%s,p=%d,r=%d}",
+                type,x,y,owner,organId,direction,organParentId,organRootId);
     }
 }

@@ -3,17 +3,15 @@ enum Direction {
     EAST('E'),
     SOUTH('S'),
     WEST('W'),
-    NONE('X'); // 表示无方向
+    NONE('X');
 
     private final char symbol;
+    Direction(char s){symbol=s;}
+    public char getSymbol(){return symbol;}
 
-    Direction(char s) { this.symbol = s; }
-
-    public char getSymbol() { return symbol; }
-
-    public static Direction fromSymbol(char c) {
-        for (Direction d : values()) {
-            if (d.symbol == c) return d;
+    public static Direction fromSymbol(char c){
+        for(Direction d: values()){
+            if(d.symbol== c) return d;
         }
         return NONE;
     }
