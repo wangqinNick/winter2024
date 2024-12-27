@@ -1,28 +1,19 @@
-/**
- * 枚举类：方向
- */
 enum Direction {
     NORTH('N'),
     EAST('E'),
     SOUTH('S'),
     WEST('W'),
-    NONE('X');
+    NONE('X'); // 表示无方向
 
     private final char symbol;
 
-    Direction(char symbol) {
-        this.symbol = symbol;
-    }
+    Direction(char s) { this.symbol = s; }
 
-    public char getSymbol() {
-        return symbol;
-    }
+    public char getSymbol() { return symbol; }
 
     public static Direction fromSymbol(char c) {
         for (Direction d : values()) {
-            if (d.symbol == c) {
-                return d;
-            }
+            if (d.symbol == c) return d;
         }
         return NONE;
     }

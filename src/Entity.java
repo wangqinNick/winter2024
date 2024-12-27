@@ -1,6 +1,3 @@
-/**
- * Entity 类：表示地图上的一个实体。
- */
 public class Entity implements Cloneable {
 
     public enum EntityType {
@@ -9,7 +6,8 @@ public class Entity implements Cloneable {
         BASIC,
         HARVESTER,
         TENTACLE,
-        A, B, C, D // 虽然本关用不到，但保留
+        SPORER,
+        A, B, C, D
     }
 
     public enum Owner {
@@ -19,20 +17,18 @@ public class Entity implements Cloneable {
     public int x, y;
     public EntityType type;
     public Owner owner;
-    public int organId;
-    public Direction direction;
-    public int organParentId;
-    public int organRootId;
+    public int organId;         // 器官ID
+    public Direction direction; // 朝向
+    public int organParentId;   // 父器官ID
+    public int organRootId;     // 该器官所属的 ROOT ID
 
-    // 采集器容量或其他属性(可选)
+    // 采集器容量 (根据需要，也可给 SPORER/TENTACLE 等不同属性)
     public int capacityC;
     public int capacityD;
 
-    /**
-     * 构造
-     */
-    public Entity(int x, int y, EntityType type, Owner owner, int organId,
-                  Direction direction, int organParentId, int organRootId) {
+    public Entity(int x, int y, EntityType type, Owner owner,
+                  int organId, Direction direction,
+                  int organParentId, int organRootId) {
         this.x = x;
         this.y = y;
         this.type = type;
@@ -42,7 +38,6 @@ public class Entity implements Cloneable {
         this.organParentId = organParentId;
         this.organRootId = organRootId;
 
-        // 若是HARVESTER默认容量
         if (type == EntityType.HARVESTER) {
             this.capacityC = 1;
             this.capacityD = 1;
@@ -52,9 +47,6 @@ public class Entity implements Cloneable {
         }
     }
 
-    /**
-     * 拷贝构造
-     */
     public Entity(Entity other) {
         this.x = other.x;
         this.y = other.y;
@@ -75,11 +67,11 @@ public class Entity implements Cloneable {
 
     @Override
     public String toString() {
-        return "Entity{x=" + x + ",y=" + y + ",type=" + type + ",owner=" + owner
-                + ",id=" + organId + ",dir=" + direction + "}";
-    }
-
-    public static Direction parseDirection(char c) {
-        return Direction.fromSymbol(c);
+        return "Entity{" + type + "@" + x + "," + y
+                + ",owner=" + owner
+                + ",id=" + organId
+                + ",dir=" + direction
+                + ",rootId=" + organRootId
+                + "}";
     }
 }
