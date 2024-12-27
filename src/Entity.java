@@ -1,7 +1,15 @@
-// Entity.java
+/**
+ * Entity 类：表示地图上的一个实体。
+ */
 public class Entity implements Cloneable {
+
     public enum EntityType {
-        WALL, ROOT, BASIC, HARVESTER, A, B, C, D
+        WALL,
+        ROOT,
+        BASIC,
+        HARVESTER,
+        TENTACLE,
+        A, B, C, D // 虽然本关用不到，但保留
     }
 
     public enum Owner {
@@ -11,26 +19,17 @@ public class Entity implements Cloneable {
     public int x, y;
     public EntityType type;
     public Owner owner;
-    public int organId;         // 器官ID (非器官则为0)
-    public Direction direction; // 方向属性
+    public int organId;
+    public Direction direction;
     public int organParentId;
     public int organRootId;
 
-    // 新增属性：资源容量
-    public int capacityC; // 表示当前采集器的 C 资源容量
-    public int capacityD; // 表示当前采集器的 D 资源容量
+    // 采集器容量或其他属性(可选)
+    public int capacityC;
+    public int capacityD;
 
     /**
-     * 构造函数，初始化实体属性。
-     *
-     * @param x              X 坐标
-     * @param y              Y 坐标
-     * @param type           实体类型
-     * @param owner          所有者
-     * @param organId        器官 ID
-     * @param direction      器官方向（使用 Direction 枚举）
-     * @param organParentId  父器官 ID
-     * @param organRootId    ROOT 器官 ID
+     * 构造
      */
     public Entity(int x, int y, EntityType type, Owner owner, int organId,
                   Direction direction, int organParentId, int organRootId) {
@@ -43,9 +42,9 @@ public class Entity implements Cloneable {
         this.organParentId = organParentId;
         this.organRootId = organRootId;
 
-        // 初始化资源容量
+        // 若是HARVESTER默认容量
         if (type == EntityType.HARVESTER) {
-            this.capacityC = 1; // 初始资源，根据游戏规则调整
+            this.capacityC = 1;
             this.capacityD = 1;
         } else {
             this.capacityC = 0;
@@ -54,9 +53,7 @@ public class Entity implements Cloneable {
     }
 
     /**
-     * 深拷贝构造函数。
-     *
-     * @param other 需要被拷贝的 Entity 对象
+     * 拷贝构造
      */
     public Entity(Entity other) {
         this.x = other.x;
@@ -71,31 +68,18 @@ public class Entity implements Cloneable {
         this.capacityD = other.capacityD;
     }
 
-    /**
-     * 克隆方法。
-     */
     @Override
     public Entity clone() {
         return new Entity(this);
     }
 
-    /**
-     * 将实体的方向符号转换为枚举值。
-     *
-     * @param dirSymbol 方向字符（'N', 'E', 'S', 'W', 'X'）
-     * @return 对应的 Direction 枚举值
-     */
-    public static Direction parseDirection(char dirSymbol) {
-        return Direction.fromSymbol(dirSymbol);
-    }
-
     @Override
     public String toString() {
-        return "Entity{" +
-                "x=" + x +
-                ", y=" + y +
-                ", type=" + type +
-                ", organId=" + organId +
-                '}';
+        return "Entity{x=" + x + ",y=" + y + ",type=" + type + ",owner=" + owner
+                + ",id=" + organId + ",dir=" + direction + "}";
+    }
+
+    public static Direction parseDirection(char c) {
+        return Direction.fromSymbol(c);
     }
 }

@@ -1,69 +1,63 @@
-// Action.java
+/**
+ * Action 类：表示我要下达的一条指令 (GROW 或 WAIT)。
+ */
 public class Action {
-    // 动作类型枚举
+
+    // 动作类型
     public enum ActionType {
         BASIC,
         HARVESTER,
-        WAIT // 特殊的等待动作
+        TENTACLE,
+        WAIT
     }
 
     private ActionType actionType;
-
-    // GROW 动作相关属性
-    private int organId;
+    private int organId; // 父器官ID
     private int x;
     private int y;
-    private char direction;   // N, S, W, E 或 X
+    private char direction; // N, E, S, W, X
 
     /**
-     * 构造 GROW 动作。
-     *
-     * @param organId    父器官 ID
-     * @param x          目标 X 坐标
-     * @param y          目标 Y 坐标
-     * @param actionType 器官类型（BASIC 或 HARVESTER）
-     * @param direction  方向（N, S, W, E 或 X）
+     * GROW 动作构造
      */
     public Action(int organId, int x, int y, ActionType actionType, char direction) {
-        this.actionType = actionType;
         this.organId = organId;
         this.x = x;
         this.y = y;
+        this.actionType = actionType;
         this.direction = direction;
     }
 
     /**
-     * 构造 WAIT 动作。
+     * WAIT 动作构造
      */
     public Action() {
         this.actionType = ActionType.WAIT;
-        this.direction = 'X';
         this.organId = 0;
         this.x = 0;
         this.y = 0;
+        this.direction = 'X';
     }
 
-    /**
-     * 将动作转为字符串输出。
-     *
-     * @return 动作命令字符串
-     */
     @Override
     public String toString() {
+        // 输出格式： GROW id x y type direction
+        // 或 WAIT
         switch (actionType) {
             case WAIT:
                 return "WAIT";
-            case HARVESTER:
-                return String.format("GROW %d %d %d HARVESTER %c", organId, x, y, direction);
             case BASIC:
                 return String.format("GROW %d %d %d BASIC %c", organId, x, y, direction);
+            case HARVESTER:
+                return String.format("GROW %d %d %d HARVESTER %c", organId, x, y, direction);
+            case TENTACLE:
+                return String.format("GROW %d %d %d TENTACLE %c", organId, x, y, direction);
             default:
-                return "WAIT"; // 默认返回 WAIT
+                return "WAIT";
         }
     }
 
-    // Getter 和 Setter 方法
-
+    // Getter
     public ActionType getActionType() {
         return actionType;
     }

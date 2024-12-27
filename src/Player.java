@@ -1,29 +1,30 @@
-// Player.java
-import java.rmi.ServerError;
-import java.util.*;
-import java.io.*;
+import java.util.Scanner;
 
 /**
- * Player 类是程序的入口，负责读取输入、更新状态，并输出行动命令。
+ * Player 类：比赛程序的入口。
+ * - 读取输入
+ * - 构建 State
+ * - 调用 Agent.getAction(...)
+ * - 输出指令
  */
 public class Player {
 
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
 
-        // 读取地图宽度和高度
+        // 读取地图宽度与高度
         int width = in.nextInt();
         int height = in.nextInt();
 
+        // 构造一个 Agent
         Agent agent = new Agent();
 
-        // 游戏循环
         while (true) {
-            // 构造本回合的 State
+            // 每回合读取 entityCount
+            int entityCount = in.nextInt();
             State state = new State(width, height);
 
-            // 读取实体数量
-            int entityCount = in.nextInt();
+            // 读取所有实体信息
             for (int i = 0; i < entityCount; i++) {
                 int x = in.nextInt();
                 int y = in.nextInt();
@@ -49,16 +50,13 @@ public class Player {
             state.oppC = in.nextInt();
             state.oppD = in.nextInt();
 
-            // 读取 requiredActionsCount (本关通常为1)
+            // 读取 requiredActionsCount (通常为1)
             int requiredActionsCount = in.nextInt();
 
-            // debug
-            System.err.println("当前回合游戏信息: ");
-            System.err.println("我方器官: ");
-            for (Entity entity: state.myOrgans) {
-                System.err.println(entity);
-            }
-            System.err.println("我方资源数量: " + state.myA + ", " + state.myB + ", " + state.myC + ", " + state.myD);
+            // 调试打印(可选)
+            System.err.println("=== NEW TURN ===");
+            System.err.println("My Proteins: A=" + state.myA + " B=" + state.myB + " C=" + state.myC + " D=" + state.myD);
+            System.err.println("Opp Proteins: A=" + state.oppA + " B=" + state.oppB + " C=" + state.oppC + " D=" + state.oppD);
 
             // 获取行动
             Action action = agent.getAction(state, requiredActionsCount);

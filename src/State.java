@@ -1,34 +1,42 @@
-// State.java
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * State 类用于存储和管理游戏状态及实体信息。
+ * State 类：存储当前回合的状态信息（地图实体、蛋白质库存等）。
  */
 public class State implements Cloneable {
 
     public int width;
     public int height;
 
-    // 蛋白质库存
+    // 蛋白质库存（我方、对手）
     public int myA, myB, myC, myD;
     public int oppA, oppB, oppC, oppD;
 
-    // 实体列表
+    // 全部实体
     public List<Entity> allEntities = new ArrayList<>();
-    public List<Entity> myOrgans = new ArrayList<>();
-    public List<Entity> oppOrgans = new ArrayList<>();
-    public List<Entity> walls = new ArrayList<>();
-    public List<Entity> proteins = new ArrayList<>(); // A, B, C, D
 
-    // 采集器列表
+    // 我方器官
+    public List<Entity> myOrgans = new ArrayList<>();
+    // 对手器官
+    public List<Entity> oppOrgans = new ArrayList<>();
+
+    // 我方收集器、触手等的分类
     public List<Entity> ownHarvesters = new ArrayList<>();
+    public List<Entity> ownTentacles = new ArrayList<>();
+
+    // 对手收集器、触手
     public List<Entity> enemyHarvesters = new ArrayList<>();
+    public List<Entity> enemyTentacles = new ArrayList<>();
+
+    // 墙
+    public List<Entity> walls = new ArrayList<>();
+
+    // (此关无蛋白质源，但保留结构)
+    public List<Entity> proteins = new ArrayList<>();
 
     /**
-     * 构造函数，初始化地图宽度和高度。
-     *
-     * @param width  地图宽度
-     * @param height 地图高度
+     * 构造函数：指定地图大小
      */
     public State(int width, int height) {
         this.width = width;
@@ -36,42 +44,48 @@ public class State implements Cloneable {
     }
 
     /**
-     * 深拷贝构造函数。
-     *
-     * @param other 需要被拷贝的 State 对象
+     * 拷贝构造：深拷贝
      */
     public State(State other) {
         this.width = other.width;
         this.height = other.height;
+
         this.myA = other.myA;
         this.myB = other.myB;
         this.myC = other.myC;
         this.myD = other.myD;
+
         this.oppA = other.oppA;
         this.oppB = other.oppB;
         this.oppC = other.oppC;
         this.oppD = other.oppD;
 
-        // 深拷贝实体列表
+        // 深拷贝实体
         for (Entity e : other.allEntities) {
-            Entity newEntity = e.clone();
-            this.allEntities.add(newEntity);
-            switch (newEntity.type) {
+            Entity cloned = e.clone();
+            this.allEntities.add(cloned);
+
+            switch (cloned.type) {
                 case WALL:
-                    this.walls.add(newEntity);
+                    walls.add(cloned);
                     break;
                 case ROOT:
                 case BASIC:
                 case HARVESTER:
-                    if (newEntity.owner == Entity.Owner.SELF) {
-                        this.myOrgans.add(newEntity);
-                        if (newEntity.type == Entity.EntityType.HARVESTER) {
-                            this.ownHarvesters.add(newEntity);
+                case TENTACLE:
+                    if (cloned.owner == Entity.Owner.SELF) {
+                        myOrgans.add(cloned);
+                        if (cloned.type == Entity.EntityType.HARVESTER) {
+                            ownHarvesters.add(cloned);
+                        } else if (cloned.type == Entity.EntityType.TENTACLE) {
+                            ownTentacles.add(cloned);
                         }
-                    } else if (newEntity.owner == Entity.Owner.OPPONENT) {
-                        this.oppOrgans.add(newEntity);
-                        if (newEntity.type == Entity.EntityType.HARVESTER) {
-                            this.enemyHarvesters.add(newEntity);
+                    } else if (cloned.owner == Entity.Owner.OPPONENT) {
+                        oppOrgans.add(cloned);
+                        if (cloned.type == Entity.EntityType.HARVESTER) {
+                            enemyHarvesters.add(cloned);
+                        } else if (cloned.type == Entity.EntityType.TENTACLE) {
+                            enemyTentacles.add(cloned);
                         }
                     }
                     break;
@@ -79,29 +93,20 @@ public class State implements Cloneable {
                 case B:
                 case C:
                 case D:
-                    this.proteins.add(newEntity);
+                    proteins.add(cloned);
                     break;
                 default:
-                    // 其他类型暂不处理
                     break;
             }
         }
     }
 
     /**
-     * 添加实体到 State 中，并根据类型进行分类存储。
-     *
-     * @param x              X 坐标
-     * @param y              Y 坐标
-     * @param type           实体类型（WALL, ROOT, BASIC, HARVESTER, A, B, C, D）
-     * @param ownerInt       所有者（1: 我方, 0: 对手, -1: 无归属）
-     * @param organId        器官 ID（非器官则为0）
-     * @param organDirSymbol 器官方向符号（'N', 'W', 'S', 'E' 或 'X'）
-     * @param organParentId  父器官 ID（ROOT 类型器官为0）
-     * @param organRootId    ROOT 器官 ID（非器官则为0）
+     * 添加实体到当前 State 中
      */
-    public void addEntity(int x, int y, String type, int ownerInt, int organId,
-                          char organDirSymbol, int organParentId, int organRootId) {
+    public void addEntity(int x, int y, String typeStr, int ownerInt,
+                          int organId, char organDir, int organParentId, int organRootId) {
+        // 确定所有者
         Entity.Owner owner;
         if (ownerInt == 1) {
             owner = Entity.Owner.SELF;
@@ -111,36 +116,45 @@ public class State implements Cloneable {
             owner = Entity.Owner.NONE;
         }
 
-        Entity.EntityType entityType;
+        // 实体类型
+        Entity.EntityType eType;
         try {
-            entityType = Entity.EntityType.valueOf(type);
-        } catch (IllegalArgumentException e) {
-            // 未知类型，默认为 WALL
-            entityType = Entity.EntityType.WALL;
+            eType = Entity.EntityType.valueOf(typeStr); // 例如 "BASIC", "TENTACLE"
+        } catch (Exception e) {
+            eType = Entity.EntityType.WALL; // fallback
         }
 
-        // 解析方向符号为 Direction 枚举
-        Direction direction = Entity.parseDirection(organDirSymbol);
+        // 方向
+        Direction direction = Direction.fromSymbol(organDir);
 
-        Entity e = new Entity(x, y, entityType, owner, organId, direction, organParentId, organRootId);
-        allEntities.add(e);
+        // 构造实体
+        Entity entity = new Entity(x, y, eType, owner, organId, direction, organParentId, organRootId);
 
-        switch (e.type) {
+        // 加入 allEntities
+        allEntities.add(entity);
+
+        // 根据类型分类
+        switch (eType) {
             case WALL:
-                walls.add(e);
+                walls.add(entity);
                 break;
             case ROOT:
             case BASIC:
             case HARVESTER:
-                if (e.owner == Entity.Owner.SELF) {
-                    myOrgans.add(e);
-                    if (e.type == Entity.EntityType.HARVESTER) {
-                        ownHarvesters.add(e);
+            case TENTACLE:
+                if (owner == Entity.Owner.SELF) {
+                    myOrgans.add(entity);
+                    if (eType == Entity.EntityType.HARVESTER) {
+                        ownHarvesters.add(entity);
+                    } else if (eType == Entity.EntityType.TENTACLE) {
+                        ownTentacles.add(entity);
                     }
-                } else if (e.owner == Entity.Owner.OPPONENT) {
-                    oppOrgans.add(e);
-                    if (e.type == Entity.EntityType.HARVESTER) {
-                        enemyHarvesters.add(e);
+                } else if (owner == Entity.Owner.OPPONENT) {
+                    oppOrgans.add(entity);
+                    if (eType == Entity.EntityType.HARVESTER) {
+                        enemyHarvesters.add(entity);
+                    } else if (eType == Entity.EntityType.TENTACLE) {
+                        enemyTentacles.add(entity);
                     }
                 }
                 break;
@@ -148,76 +162,33 @@ public class State implements Cloneable {
             case B:
             case C:
             case D:
-                proteins.add(e);
+                proteins.add(entity);
                 break;
             default:
-                // 其他类型暂不处理
                 break;
         }
     }
 
-    // --- 判断方法 ---
-
-    /**
-     * 判断某坐标是否越界。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果越界则返回 true，否则返回 false
-     */
     public boolean isOutOfBounds(int x, int y) {
-        return x < 0 || x >= width || y < 0 || y >= height;
+        return (x < 0 || x >= width || y < 0 || y >= height);
     }
 
-    /**
-     * 判断某坐标是否为墙。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果是墙则返回 true，否则返回 false
-     */
     public boolean isWall(int x, int y) {
-        for (Entity e : walls) {
-            if (e.x == x && e.y == y) return true;
+        for (Entity w : walls) {
+            if (w.x == x && w.y == y) {
+                return true;
+            }
         }
         return false;
     }
 
-    /**
-     * 判断某坐标是否为我方器官。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果是我方器官则返回 true，否则返回 false
-     */
     public boolean isMyOrgan(int x, int y) {
-        for (Entity e : allEntities) {
+        for (Entity e : myOrgans) {
             if (e.x == x && e.y == y) return true;
         }
         return false;
     }
 
-    /**
-     * 判断某坐标是否为Root。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果是Root则返回 true，否则返回 false
-     */
-    public boolean isRoot(int x, int y) {
-        for (Entity e : myOrgans) {
-            if (e.x == x && e.y == y && e.type == Entity.EntityType.ROOT) return true;
-        }
-        return false;
-    }
-
-    /**
-     * 判断某坐标是否为对方器官。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果是对方器官则返回 true，否则返回 false
-     */
     public boolean isOppOrgan(int x, int y) {
         for (Entity e : oppOrgans) {
             if (e.x == x && e.y == y) return true;
@@ -225,49 +196,18 @@ public class State implements Cloneable {
         return false;
     }
 
-    /**
-     * 判断某坐标是否为蛋白质源（A/B/C/D）。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果是蛋白质源则返回 true，否则返回 false
-     */
     public boolean isProteinTile(int x, int y) {
-        for (Entity e : proteins) {
-            if (e.x == x && e.y == y) return true;
+        for (Entity p : proteins) {
+            if (p.x == x && p.y == y) return true;
         }
         return false;
     }
 
     /**
-     * 判断某坐标是否为纯空地（非墙、非器官、非蛋白质）。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果是空地则返回 true，否则返回 false
+     * 如果要克隆，使用拷贝构造
      */
-    public boolean isCellEmpty(int x, int y) {
-        if (isOutOfBounds(x, y)) return false;
-        if (isWall(x, y)) return false;
-        if (isMyOrgan(x, y)) return false;
-        if (isOppOrgan(x, y)) return false;
-        if (isProteinTile(x, y)) return false;
-        return true;
-    }
-
-    /**
-     * 判断蛋白质位置上是否已经放置器官。
-     *
-     * @param x X 坐标
-     * @param y Y 坐标
-     * @return 如果已经放置器官，则返回 true，否则返回 false
-     */
-    public boolean isOrganPlaced(int x, int y) {
-        for (Entity organ : myOrgans) {
-            if (organ.x == x && organ.y == y) {
-                return true;
-            }
-        }
-        return false;
+    @Override
+    public State clone() {
+        return new State(this);
     }
 }
