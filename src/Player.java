@@ -43,7 +43,7 @@ public class Player {
             int requiredActionsCount= in.nextInt();
 
             // 你可以输出地图检查
-            // state.debugPrintGrid();
+//             state.debugPrintGrid();
 
             // 获取动作
             List<Action> actions= agent.getActions(state, requiredActionsCount);
